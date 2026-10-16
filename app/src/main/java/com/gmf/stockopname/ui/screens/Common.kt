@@ -1,0 +1,146 @@
+package com.gmf.stockopname.ui.screens
+
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import com.gmf.stockopname.data.RemoteMasterDataSource
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.gmf.stockopname.data.STATUS_LABELS
+import com.gmf.stockopname.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+@Composable
+fun TopHeader(
+    title: String,
+    subtitle: String? = null,
+    onBack: (() -> Unit)? = null,
+    actions: (@Composable () -> Unit)? = null
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .background(Brush.horizontalGradient(listOf(Navy, Navy2)))
+            .padding(horizontal = 18.dp, vertical = 18.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color.White)
+                }
+                Spacer(Modifier.width(4.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Color.White, style = MaterialTheme.typography.titleLarge)
+                if (subtitle != null) {
+                    Text(subtitle, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            if (actions != null) {
+                actions()
+            }
+        }
+    }
+}
+
+@Composable
+fun StatusBadge(status: String) {
+    val (bg, fg) = when (status) {
+        "available", "OK", "Selesai" -> GreenBg to Green
+        "calibration", "maintenance", "Proses" -> AmberBg to Amber
+        "borrowed" -> Color(0xFFDDE8FB) to Color(0xFF3B6FD6)
+        "quarantined", "broken", "missing", "Discrepancy" -> RedBg to Red
+        else -> BgLight to MutedLight
+    }
+    val label = STATUS_LABELS[status] ?: status
+    Box(
+        Modifier
+            .background(bg, RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(label, color = fg, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = CardLight),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(Modifier.padding(16.dp), content = content)
+    }
+}
+
+/** "YYYY-MM-DD" (format tersimpan) -> "dd-MM-yyyy" (format tampilan). Null/kosong/tidak valid -> null. */
+fun formatDueDate(iso: String?): String? {
+    if (iso.isNullOrBlank()) return null
+    return try {
+        val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(iso) ?: return null
+        SimpleDateFormat("dd-MM-yyyy", Locale("id", "ID")).format(parsed)
+    } catch (_: Exception) {
+        null
+    }
+}
+
+/** True kalau tanggal (format "YYYY-MM-DD") sudah lewat hari ini. */
+fun isPastDue(iso: String?): Boolean {
+    if (iso.isNullOrBlank()) return false
+    return try {
+        iso < SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date())
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/** Baris "Due Date Kalibrasi" — merah + tanda ⚠️ kalau sudah lewat jatuh tempo. */
+@Composable
+fun DueDateRow(dueDateIso: String?) {
+    val formatted = formatDueDate(dueDateIso) ?: return
+    val overdue = isPastDue(dueDateIso)
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(
+            "Due Date Kalibrasi", color = MutedLight, modifier = Modifier.width(118.dp),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            if (overdue) "$formatted ⚠️ Lewat jatuh tempo" else formatted,
+            color = if (overdue) Red else TextLight,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+fun StatChip(value: String, label: String, color: Color = TextLight, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .background(BgLight, RoundedCornerShape(12.dp))
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(value, color = color, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
+        Text(label, color = MutedLight, style = MaterialTheme.typography.labelSmall)
+    }
+}
